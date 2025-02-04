@@ -1,0 +1,457 @@
+МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ
+
+
+ХАРКІВСЬКИЙ НАЦІОНАЛЬНИЙ УНІВЕРСИТЕТ РАДІОЕЛЕКТРОНІКИ
+
+Кафедра «Програмна інженерія»
+
+
+
+ЗВІТ
+до лабораторної работи №2 з дисципліни
+«Аналіз та рефакторинг коду»
+
+
+
+
+Виконав:	Перевірив:
+ст. гр. ПЗПІ-22-9	Ст. викл. кафедри ПІ
+Ковалевич Данііл Ігорович	Сокорчук Ігор Петрович
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Харків 2024
+Посилання на відео: https://youtu.be/X7kOiHmFSPc
+Мета:
+Метою лабораторної роботи є розробка бази даних для серверної частини програмної системи управління транспортними засобами, створення REST API для взаємодії з клієнтами та перевірка функціональності через інструменти тестування.
+
+Опис інженерних рішень
+У рамках лабораторної роботи №2 було прийнято низку інженерних рішень для розробки серверної частини програмної системи управління транспортними засобами. Вибір технологій та архітектури базувався на вимогах до масштабованості, простоти налаштування, безпеки даних.
+
+Вибір технологій
+Серверна частина – Node.js
+Для розробки серверної частини було обрано Node.js через його ефективність при обробці асинхронних операцій і роботу з великою кількістю одночасних запитів. Основні переваги Node.js включають:
+•	Асинхронна обробка: Забезпечує високу продуктивність і дозволяє обробляти велику кількість паралельних підключень без блокувань.
+•	Мінімалістичний стек: Node.js дозволяє створити легкий сервер без використання важких фреймворків, що відповідає вимогам лабораторної роботи щодо відсутності сторонніх бібліотек.
+•	Широкі можливості роботи з API: Node.js ідеально підходить для створення REST API, що забезпечує легку інтеграцію з клієнтськими додатками.
+База даних – SQLite
+Було обрано SQLite як легковагову реляційну базу даних. Основні переваги SQLite для цієї роботи:
+•	Простота налаштування: SQLite не потребує налаштування окремого сервера баз даних, що спрощує розгортання.
+•	Підтримка ACID-транзакцій: Забезпечує цілісність даних навіть при асинхронній роботі з базою.
+•	Відповідність вимогам: Відсутність необхідності використання сторонніх бібліотек або серверів повністю відповідає вимогам лабораторної роботи.
+
+Архітектура програми
+Система має чітку розділену архітектуру з виділенням основних компонентів:
+•	controllers/ – містить логіку обробки запитів до бази даних. Наприклад, vehicleController.js відповідає за CRUD-операції з транспортними засобами.
+•	routes/ – обробка маршрутизації API. Файл apiRoutes.js відповідає за розподіл запитів між контролерами.
+•	db/ – містить налаштування бази даних (database.js), де здійснюється підключення та ініціалізація структури БД.
+•	server.js – основний файл запуску сервера, що підключає всі маршрути.
+
+Безпека даних
+•	Валідація даних: Всі вхідні дані перевіряються на коректність перед збереженням у базу даних.
+•	Обробка SQL-ін'єкцій: Використання параметризованих запитів (?) у SQLite запобігає можливим SQL-атакам.
+•	Управління доступом: У майбутньому може бути реалізована рольова модель доступу для відокремлення прав Адміністратора і Менеджера автопарку.
+Масштабованість та розширюваність
+•	Розширення API: Архітектура дозволяє легко додавати нові ендпоінти для роботи з іншими компонентами системи (наприклад, графіками технічного обслуговування).
+•	Масштабованість: При переході на великі обсяги даних систему можна адаптувати для роботи з більш потужними СУБД (наприклад, PostgreSQL).
+ 
+UML-діаграма прецедентів
+UML-діаграма прецедентів ілюструє взаємодію користувачів із серверною частиною системи управління транспортними засобами. Основні актори:
+•	Адміністратор:
+o	Додає, оновлює та видаляє транспортні засоби.
+o	Налаштовує систему моніторингу сенсорів.
+•	Менеджер автопарку:
+o	Переглядає інформацію про транспортні засоби.
+o	Аналізує дані сенсорів для моніторингу стану автопарку.
+Основні прецеденти:
+•	Додавання нового транспортного засобу.
+•	Оновлення інформації про транспортний засіб.
+•	Видалення транспортного засобу.
+•	Перегляд списку транспортних засобів.
+•	Отримання даних сенсорів для транспортного засобу.
+
+ 
+Рисунок 1 – UML-діаграма прецедентів
+
+
+
+ER-діаграма даних
+ER-діаграма (Entity-Relationship) демонструє структуру бази даних, використовуючи сутності, їх атрибути та зв'язки між ними. Основні сутності системи:
+•	vehicles (Транспортні засоби):
+Зберігає інформацію про транспортні засоби, такі як номерний знак, модель і рік випуску.
+•	sensor_data (Дані сенсорів):
+Фіксує показники з IoT-сенсорів, зокрема тип сенсора, значення та час запису.
+•	maintenance_schedules (Графіки технічного обслуговування):
+Відповідає за зберігання даних про планові обслуговування транспортних засобів.
+Зв'язки:
+•	Один транспортний засіб може мати багато записів про дані сенсорів і багато записів про технічне обслуговування.
+ 
+Рисунок 2 – ER-діаграма даних програмної системи
+
+
+
+
+Розробка бази даних (БД) програмної системи
+Для зберігання даних програмної системи була розроблена база даних на основі SQLite. Вона включає три основні таблиці:
+1.	vehicles – зберігає інформацію про транспортні засоби.
+2.	sensor_data – містить дані з IoT-сенсорів.
+3.	maintenance_schedules – зберігає графіки технічного обслуговування.
+Кожна таблиця має унікальний ідентифікатор (id), що дозволяє ефективно здійснювати пошук і маніпуляції з даними.
+
+Діаграма структури БД
+Діаграма структури бази даних показує таблиці та їх поля з типами даних:
+•	vehicles
+o	id – INTEGER PRIMARY KEY AUTOINCREMENT
+o	license_plate – TEXT NOT NULL
+o	model – TEXT NOT NULL
+o	year – INTEGER NOT NULL
+•	sensor_data
+o	id – INTEGER PRIMARY KEY AUTOINCREMENT
+o	vehicle_id – INTEGER
+o	sensor_type – TEXT NOT NULL
+o	value – REAL NOT NULL
+o	timestamp – DATETIME DEFAULT CURRENT_TIMESTAMP
+•	maintenance_schedules
+o	id – INTEGER PRIMARY KEY AUTOINCREMENT
+o	vehicle_id – INTEGER
+o	maintenance_date – DATE NOT NULL
+o	description – TEXT
+ 
+Рисунок 3 – Діаграма структури бази даних програмної системи
+Розробка функцій роботи з БД
+Для забезпечення ефективної взаємодії з базою даних у програмній системі реалізовані функції роботи з БД у вигляді окремих модулів. Основні функції розділені на такі файли:
+•	database.js – підключення до бази даних SQLite.
+•	vehicleController.js – функції для роботи з транспортними засобами.
+•	sensorController.js – функції для роботи з даними сенсорів.
+1. Підключення до бази даних (database.js):
+Ця функція встановлює з'єднання з базою даних SQLite:
+const sqlite3 = require('sqlite3').verbose(); 
+
+const connectDB = () => {
+    return new sqlite3.Database('./vehicles.db', (err) => {
+        if (err) {
+            console.error('Database connection error:', err.message);
+        } else {
+            console.log('Connected to SQLite database.');
+        }
+    });
+};
+
+module.exports = connectDB;
+2. Отримання всіх транспортних засобів (vehicleController.js):
+Функція повертає список усіх транспортних засобів із бази даних:
+const getAllVehicles = (req, res) => {
+    const db = new sqlite3.Database('./vehicles.db');
+    
+    db.all('SELECT * FROM vehicles', [], (err, rows) => {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(rows));
+        }
+        db.close();
+    });
+};
+3. Отримання даних сенсорів (sensorController.js):
+Функція дозволяє отримати дані сенсорів для конкретного транспортного засобу:
+const connectDB = require('../db/database');
+
+const getSensorDataByVehicle = (req, res, vehicleId) => {
+    const db = connectDB();
+    db.all('SELECT * FROM sensor_data WHERE vehicle_id = ?', [vehicleId], (err, rows) => {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+        } else if (rows.length === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'Sensor data not found' }));
+        } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify(rows));
+        }
+    });
+    db.close();
+};
+
+module.exports = { getSensorDataByVehicle };
+
+Інші функції для додавання, оновлення та видалення транспортних засобів наведені у додатку А.
+
+Розробка API для взаємодії серверної частини з клієнтами
+У програмній системі реалізовано REST API, що дозволяє виконувати CRUD-операції для транспортних засобів та отримувати дані з IoT-сенсорів. API побудовано на основі стандартних HTTP-запитів (GET, POST, PUT, DELETE).
+
+Специфікація API
+1. Отримання списку всіх транспортних засобів
+•	Метод: GET
+•	Ендпоінт: /vehicles
+•	Опис: Повертає список усіх транспортних засобів.
+•	Відповідь:
+[
+    {
+        "id": 1,
+        "license_plate": "AX1234BC",
+        "model": "Toyota Corolla",
+        "year": 2020
+    },
+    {
+        "id": 2,
+        "license_plate": "BX5678CD",
+        "model": "Ford Focus",
+        "year": 2018
+    }
+]
+2. Отримання інформації про транспортний засіб за ID
+•	Метод: GET
+•	Ендпоінт: /vehicles/{id}
+•	Опис: Повертає інформацію про транспортний засіб із зазначеним ID.
+•	Відповідь:
+{
+    "id": 1,
+    "license_plate": "AX1234BC",
+    "model": "Toyota Corolla",
+    "year": 2020
+}
+Також приклад відповіді (404 Not Found):
+{
+    "message": "Vehicle not found"
+}
+3. Додавання нового транспортного засобу
+•	Метод: POST
+•	Ендпоінт: /vehicles
+•	Опис: Додає новий транспортний засіб до бази даних.
+•	Тіло запиту (JSON):
+{
+    "license_plate": "CX9876DE",
+    "model": "Honda Civic",
+    "year": 2022
+}
+Відповідь:
+{
+    "message": "Vehicle added",
+    "id": 3
+}
+4. Оновлення інформації про транспортний засіб
+•	Метод: PUT
+•	Ендпоінт: /vehicles/{id}
+•	Опис: Оновлює дані транспортного засобу з зазначеним ID.
+•	Тіло запиту (JSON):
+{
+    "model": "Honda Accord",
+    "year": 2023
+}
+
+Відповідь:
+{
+    "message": "Vehicle updated"
+}
+Приклад відповіді (404 Not Found):
+{
+    "message": "Vehicle not found"
+}
+Видалення транспортного засобу
+•	Метод: DELETE
+•	Ендпоінт: /vehicles/{id}
+•	Опис: Видаляє транспортний засіб із зазначеним ID.
+•	Відповідь:
+{
+    "message": "Vehicle deleted"
+}
+Приклад відповіді (404 Not Found):
+{
+    "message": "Vehicle not found"
+}
+Отримання даних сенсорів для транспортного засобу
+•	Метод: GET
+•	Ендпоінт: /sensors/{vehicleId}
+•	Опис: Повертає дані сенсорів для конкретного транспортного засобу.
+•	Відповідь:
+[
+    {
+        "id": 1,
+        "vehicle_id": 1,
+        "sensor_type": "Fuel Level",
+        "value": 75.5,
+        "timestamp": "2024-02-04T10:15:00Z"
+    },
+    {
+        "id": 2,
+        "vehicle_id": 1,
+        "sensor_type": "Tire Pressure",
+        "value": 32.0,
+        "timestamp": "2024-02-04T10:16:00Z"
+    }
+]
+Приклад відповіді (404 Not Found):
+{
+    "message": "Sensor data not found"
+}
+Висновки
+У рамках лабораторної роботи №2 було успішно реалізовано серверну частину програмної системи для управління транспортними засобами. Основна увага була приділена створенню бази даних та розробці REST API для взаємодії з клієнтами.
+ 
+Додаток А – Код програмної реалізації API для роботи з транспортними засобами
+const sqlite3 = require('sqlite3').verbose();
+
+// Отримання всіх транспортних засобів
+const getAllVehicles = (req, res) => {
+    const db = new sqlite3.Database('./vehicles.db');
+    
+    db.all('SELECT * FROM vehicles', [], (err, rows) => {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+            db.close();
+            return;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(rows));
+        db.close();
+    });
+};
+
+// Додавання нового транспортного засобу
+const addVehicle = (req, res) => {
+    let body = '';
+    const db = new sqlite3.Database('./vehicles.db');
+
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+
+    req.on('end', () => {
+        const { license_plate, model, year } = JSON.parse(body);
+
+        if (!license_plate || !model || !year) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'All fields are required' }));
+            db.close();
+            return;
+        }
+
+        db.run(
+            'INSERT INTO vehicles (license_plate, model, year) VALUES (?, ?, ?)',
+            [license_plate, model, year],
+            function(err) {
+                if (err) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                    db.close();
+                    return;
+                }
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Vehicle added', id: this.lastID }));
+                db.close();
+            }
+        );
+    });
+};
+
+// Оновлення інформації про транспортний засіб
+const updateVehicle = (req, res, vehicleId) => {
+    let body = '';
+    const db = new sqlite3.Database('./vehicles.db');
+
+    req.on('data', chunk => {
+        body += chunk.toString();
+    });
+
+    req.on('end', () => {
+        const { model, year } = JSON.parse(body);
+
+        db.run(
+            'UPDATE vehicles SET model = ?, year = ? WHERE id = ?',
+            [model, year, vehicleId],
+            function(err) {
+                if (err) {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: err.message }));
+                    db.close();
+                    return;
+                }
+
+                if (this.changes === 0) {
+                    res.writeHead(404, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ message: 'Vehicle not found' }));
+                    db.close();
+                    return;
+                }
+
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ message: 'Vehicle updated' }));
+                db.close();
+            }
+        );
+    });
+};
+
+// Видалення транспортного засобу
+const deleteVehicle = (req, res, vehicleId) => {
+    const db = new sqlite3.Database('./vehicles.db');
+
+    db.run('DELETE FROM vehicles WHERE id = ?', [vehicleId], function(err) {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+            db.close();
+            return;
+        }
+
+        if (this.changes === 0) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'Vehicle not found' }));
+            db.close();
+            return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'Vehicle deleted' }));
+        db.close();
+    });
+
+    
+};
+
+// Отримання транспортного засобу за ID
+const getVehicleById = (req, res, vehicleId) => {
+    const db = new sqlite3.Database('./vehicles.db');
+
+    db.get('SELECT * FROM vehicles WHERE id = ?', [vehicleId], (err, row) => {
+        if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: err.message }));
+            db.close();
+            return;
+        }
+
+        if (!row) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ message: 'Vehicle not found' }));
+            db.close();
+            return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(row));
+        db.close();
+    });
+};
+
+module.exports = { getAllVehicles, getVehicleById, addVehicle, updateVehicle, deleteVehicle };
+
+
+
