@@ -36,10 +36,16 @@ const routes = {
 // Функція для обробки маршруту та виклику відповідного контролера
 const handleRequest = (req, res) => {
     const normalizedUrl = req.url.replace(/\/$/, ''); // Видаляємо кінцевий "/"
-    const [baseUrl, id] = normalizedUrl.split('/').slice(1); // Розбиваємо шлях
     const method = req.method;
+    
+    console.log(`Incoming request: ${method} ${normalizedUrl}`);
 
-    // Шукаємо маршрут у `routes`
+    const urlParts = normalizedUrl.split('/');
+    const basePath = `/${urlParts.slice(1, -1).join('/')}`; // Формуємо базовий шлях без ID
+    const entityId = urlParts[urlParts.length - 1]; // ID об'єкта, якщо є
+
+    console.log(`Parsed Base Path: ${basePath}, Extracted ID: ${entityId}`);
+
     for (const [route, { handler, roles }] of Object.entries(routes[method] || {})) {
         const routeParts = route.split('/');
         const requestParts = normalizedUrl.split('/');
@@ -48,16 +54,15 @@ const handleRequest = (req, res) => {
             const isMatch = routeParts.every((part, i) => part === requestParts[i] || part.startsWith(':'));
 
             if (isMatch) {
-                // Отримуємо ID (якщо є)
-                const entityId = routeParts.includes(':id') ? id : undefined;
+                const finalEntityId = routeParts.includes(':id') ? entityId : undefined;
+                console.log(`Matched Route: ${route}, Final Entity ID: ${finalEntityId}`);
 
-                // Виконуємо перевірку ролі перед викликом контролера
-                return checkRole(roles)(req, res, () => handler(req, res, entityId));
+                return checkRole(roles)(req, res, () => handler(req, res, finalEntityId));
             }
         }
     }
 
-    // Якщо маршрут не знайдено
+    console.log(`Route not found: ${method} ${normalizedUrl}`);
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: 'Not Found' }));
 };
