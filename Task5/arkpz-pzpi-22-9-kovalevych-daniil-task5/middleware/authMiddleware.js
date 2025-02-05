@@ -1,43 +1,49 @@
 const sqlite3 = require('sqlite3').verbose();
+const DB_PATH = './db/vehicles.db';
+const CONTENT_TYPE_JSON = { 'Content-Type': 'application/json' };
 
-// Перевірка ролі користувача
+// Функція для виконання SQL-запитів (Promise-based)
+const executeQuery = async (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        const db = new sqlite3.Database(DB_PATH);
+        db.get(query, params, (err, row) => {
+            db.close();
+            err ? reject(err) : resolve(row);
+        });
+    });
+};
+
+// Middleware для перевірки ролі користувача
 const checkRole = (allowedRoles) => {
-    return (req, res, next) => {
-        const authHeader = req.headers['authorization'];
+    return async (req, res, next) => {
+        try {
+            const authHeader = req.headers['authorization'];
 
-        if (!authHeader) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'Authorization header missing' }));
-            return;
-        }
-
-        const username = authHeader;
-
-        const db = new sqlite3.Database('./db/vehicles.db');
-
-        db.get(`SELECT role FROM users WHERE username = ?`, [username], (err, user) => {
-            if (err) {
-                console.error('Database error:', err.message);
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-                return;
+            if (!authHeader) {
+                res.writeHead(401, CONTENT_TYPE_JSON);
+                return res.end(JSON.stringify({ message: 'Authorization header missing' }));
             }
 
+            const username = authHeader.trim();
+            const user = await executeQuery(`SELECT role FROM users WHERE username = ?`, [username]);
+
             if (!user) {
-                res.writeHead(403, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'User not found' }));
-                return;
+                res.writeHead(403, CONTENT_TYPE_JSON);
+                return res.end(JSON.stringify({ message: 'User not found' }));
             }
 
             if (!allowedRoles.includes(user.role)) {
-                res.writeHead(403, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'Access denied' }));
-                return;
+                res.writeHead(403, CONTENT_TYPE_JSON);
+                return res.end(JSON.stringify({ message: 'Access denied' }));
             }
-            next();
-        });
 
-        db.close();
+            req.user = { username, role: user.role }; // Збереження інформації про користувача
+            next();
+        } catch (err) {
+            console.error('Database error:', err.message);
+            res.writeHead(500, CONTENT_TYPE_JSON);
+            res.end(JSON.stringify({ error: err.message }));
+        }
     };
 };
 

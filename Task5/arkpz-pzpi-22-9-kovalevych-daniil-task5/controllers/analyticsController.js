@@ -1,78 +1,75 @@
 const sqlite3 = require('sqlite3').verbose();
 
-// 1. Підрахунок кількості транспортних засобів
-const getVehicleCount = (req, res) => {
-    const db = new sqlite3.Database('./db/vehicles.db');
+// Константи для конфігурації
+const DB_PATH = './db/vehicles.db';
+const CONTENT_TYPE_JSON = { 'Content-Type': 'application/json' };
 
-    db.get(`SELECT COUNT(*) AS totalVehicles FROM vehicles`, (err, row) => {
+// Універсальна функція для роботи з БД
+const executeQuery = (query, params, res, processResult) => {
+    const db = new sqlite3.Database(DB_PATH);
+    
+    db.all(query, params, (err, rows) => {
         if (err) {
-            console.error('Error fetching vehicle count:', err.message);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
+            handleError(res, 'Error executing query:', err);
             return;
         }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ totalVehicles: row.totalVehicles }));
+        processResult(rows);
     });
 
     db.close();
+};
+
+// Обробка помилок
+const handleError = (res, message, err) => {
+    console.error(message, err.message);
+    res.writeHead(500, CONTENT_TYPE_JSON);
+    res.end(JSON.stringify({ error: err.message }));
+};
+
+// 1. Підрахунок кількості транспортних засобів
+const getVehicleCount = (req, res) => {
+    const query = `SELECT COUNT(*) AS totalVehicles FROM vehicles`;
+    executeQuery(query, [], res, (rows) => {
+        res.writeHead(200, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ totalVehicles: rows[0].totalVehicles }));
+    });
 };
 
 // 2. Середні значення сенсорних показників (oil_level, engine_temp)
 const getAverageSensorData = (req, res) => {
-    const db = new sqlite3.Database('./db/vehicles.db');
-
-    db.all(`
+    const query = `
         SELECT sensor_type, AVG(value) AS average_value 
         FROM sensor_data
         WHERE sensor_type IN ('oil_level', 'engine_temp')
         GROUP BY sensor_type
-    `, (err, rows) => {
-        if (err) {
-            console.error('Error fetching sensor data:', err.message);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            return;
-        }
-
+    `;
+    executeQuery(query, [], res, (rows) => {
         const sensorData = {};
         rows.forEach(row => {
-            sensorData[row.sensor_type] = row.average_value.toFixed(2);  // Округлення до 2 знаків
+            sensorData[row.sensor_type] = parseFloat(row.average_value).toFixed(2);
         });
 
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.writeHead(200, CONTENT_TYPE_JSON);
         res.end(JSON.stringify(sensorData));
     });
-
-    db.close();
 };
 
 // 3. Статистика технічного обслуговування (pending/completed)
 const getMaintenanceStats = (req, res) => {
-    const db = new sqlite3.Database('./db/vehicles.db');
-
-    db.get(`
+    const query = `
         SELECT 
             COUNT(CASE WHEN status = 'pending' THEN 1 END) AS pending_maintenance,
             COUNT(CASE WHEN status = 'completed' THEN 1 END) AS completed_maintenance
         FROM maintenance_schedules
-    `, (err, row) => {
-        if (err) {
-            console.error('Error fetching maintenance stats:', err.message);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            return;
-        }
-
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+    `;
+    executeQuery(query, [], res, (rows) => {
+        const result = rows[0];
+        res.writeHead(200, CONTENT_TYPE_JSON);
         res.end(JSON.stringify({
-            pendingMaintenance: row.pending_maintenance,
-            completedMaintenance: row.completed_maintenance
+            pendingMaintenance: result.pending_maintenance,
+            completedMaintenance: result.completed_maintenance
         }));
     });
-
-    db.close();
 };
 
 module.exports = { getVehicleCount, getAverageSensorData, getMaintenanceStats };

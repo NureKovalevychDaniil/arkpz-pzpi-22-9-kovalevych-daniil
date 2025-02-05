@@ -1,96 +1,65 @@
-const { getAllVehicles, getVehicleById, addVehicle, updateVehicle, deleteVehicle } = require('../controllers/vehicleController');
+const {
+    getAllVehicles, getVehicleById, addVehicle, updateVehicle, deleteVehicle
+} = require('../controllers/vehicleController');
 const { getSensorDataByVehicle } = require('../controllers/sensorController');
 const { addUser, getAllUsers, updateUser, deleteUser } = require('../controllers/userController');
 const { checkMaintenanceNeeds, completeMaintenance } = require('../controllers/maintenanceController');
 const { getVehicleCount, getAverageSensorData, getMaintenanceStats } = require('../controllers/analyticsController');
 const { checkRole } = require('../middleware/authMiddleware'); // Імпорт перевірки ролей
 
-const routeHandler = (req, res) => {
-    const normalizedUrl = req.url.replace(/\/$/, '');
-
-    // Обробка маршрутів для транспортних засобів
-    if (normalizedUrl === '/vehicles' && req.method === 'GET') {
-        checkRole(['admin', 'manager', 'user'])(req, res, () => getAllVehicles(req, res));
-        return;
-
-    } else if (normalizedUrl.startsWith('/vehicles/') && req.method === 'GET') {
-        const vehicleId = normalizedUrl.split('/')[2];
-        checkRole(['admin', 'manager', 'user'])(req, res, () => getVehicleById(req, res, vehicleId));
-        return;
-
-    } else if (normalizedUrl === '/vehicles' && req.method === 'POST') {
-        checkRole(['admin', 'manager'])(req, res, () => addVehicle(req, res));
-        return;
-
-    } else if (normalizedUrl.startsWith('/vehicles/') && req.method === 'PUT') {
-        const vehicleId = normalizedUrl.split('/')[2];
-        checkRole(['admin', 'manager'])(req, res, () => updateVehicle(req, res, vehicleId));
-        return;
-
-    } else if (normalizedUrl.startsWith('/vehicles/') && req.method === 'DELETE') {
-        const vehicleId = normalizedUrl.split('/')[2];
-        checkRole(['admin'])(req, res, () => deleteVehicle(req, res, vehicleId));
-        return;
-
-    // Обробка даних сенсорів
-    } else if (normalizedUrl.startsWith('/sensors/') && req.method === 'GET') {
-        const vehicleId = normalizedUrl.split('/')[2];
-        checkRole(['admin', 'manager', 'user'])(req, res, () => getSensorDataByVehicle(req, res, vehicleId));
-        return;
-
-    // Управління користувачами
-    } else if (normalizedUrl === '/admin/users' && req.method === 'POST') {
-        checkRole(['admin'])(req, res, () => addUser(req, res));
-        return;
-
-    } else if (normalizedUrl === '/admin/users' && req.method === 'GET') {
-        checkRole(['admin'])(req, res, () => getAllUsers(req, res));
-        return;
-
-    } else if (normalizedUrl.startsWith('/admin/users/') && req.method === 'PUT') {
-        const userId = normalizedUrl.split('/')[3];
-        checkRole(['admin'])(req, res, () => updateUser(req, res, userId));
-        return;
-
-    } else if (normalizedUrl.startsWith('/admin/users/') && req.method === 'DELETE') {
-        const userId = normalizedUrl.split('/')[3];
-        checkRole(['admin'])(req, res, () => deleteUser(req, res, userId));
-        return;
-
-    // Перевірка технічного обслуговування
-    } else if (normalizedUrl.startsWith('/admin/maintenance/check') && req.method === 'GET') {
-        const vehicleId = normalizedUrl.split('/')[4];
-        checkRole(['admin', 'manager'])(req, res, () => checkMaintenanceNeeds(req, res, vehicleId));
-        return;
+const routes = {
+    'GET': {
+        '/vehicles': { handler: getAllVehicles, roles: ['admin', 'manager', 'user'] },
+        '/vehicles/:id': { handler: getVehicleById, roles: ['admin', 'manager', 'user'] },
+        '/sensors/:id': { handler: getSensorDataByVehicle, roles: ['admin', 'manager', 'user'] },
+        '/admin/users': { handler: getAllUsers, roles: ['admin'] },
+        '/admin/maintenance/check/:id': { handler: checkMaintenanceNeeds, roles: ['admin', 'manager'] },
+        '/admin/analytics/vehicles': { handler: getVehicleCount, roles: ['admin', 'manager'] },
+        '/admin/analytics/sensors': { handler: getAverageSensorData, roles: ['admin', 'manager'] },
+        '/admin/analytics/maintenance': { handler: getMaintenanceStats, roles: ['admin', 'manager'] }
+    },
+    'POST': {
+        '/vehicles': { handler: addVehicle, roles: ['admin', 'manager'] },
+        '/admin/users': { handler: addUser, roles: ['admin'] }
+    },
+    'PUT': {
+        '/vehicles/:id': { handler: updateVehicle, roles: ['admin', 'manager'] },
+        '/admin/users/:id': { handler: updateUser, roles: ['admin'] },
+        '/admin/maintenance/complete/:id': { handler: completeMaintenance, roles: ['admin', 'manager'] }
+    },
+    'DELETE': {
+        '/vehicles/:id': { handler: deleteVehicle, roles: ['admin'] },
+        '/admin/users/:id': { handler: deleteUser, roles: ['admin'] }
     }
+};
 
-    // Завершення технічного обслуговування
-    else if (normalizedUrl.startsWith('/admin/maintenance/complete/') && req.method === 'PUT') {
-        const maintenanceId = normalizedUrl.split('/')[4];
-        checkRole(['admin', 'manager'])(req, res, () => completeMaintenance(req, res, maintenanceId));
-        return;
-    }
+// Функція для обробки маршруту та виклику відповідного контролера
+const handleRequest = (req, res) => {
+    const normalizedUrl = req.url.replace(/\/$/, ''); // Видаляємо кінцевий "/"
+    const [baseUrl, id] = normalizedUrl.split('/').slice(1); // Розбиваємо шлях
+    const method = req.method;
 
-    // Аналітика
-    else if (normalizedUrl.startsWith('/admin/analytics') && req.method === 'GET') {
-        checkRole(['admin', 'manager'])(req, res, () => {
-            if (normalizedUrl === '/admin/analytics/vehicles') {
-                getVehicleCount(req, res);
-            } else if (normalizedUrl === '/admin/analytics/sensors') {
-                getAverageSensorData(req, res);
-            } else if (normalizedUrl === '/admin/analytics/maintenance') {
-                getMaintenanceStats(req, res);
-            } else {
-                res.writeHead(404, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'Analytics route not found' }));
+    // Шукаємо маршрут у `routes`
+    for (const [route, { handler, roles }] of Object.entries(routes[method] || {})) {
+        const routeParts = route.split('/');
+        const requestParts = normalizedUrl.split('/');
+
+        if (routeParts.length === requestParts.length) {
+            const isMatch = routeParts.every((part, i) => part === requestParts[i] || part.startsWith(':'));
+
+            if (isMatch) {
+                // Отримуємо ID (якщо є)
+                const entityId = routeParts.includes(':id') ? id : undefined;
+
+                // Виконуємо перевірку ролі перед викликом контролера
+                return checkRole(roles)(req, res, () => handler(req, res, entityId));
             }
-        });
-        return;
+        }
     }
 
-    // Відповідь, якщо маршрут не знайдено
+    // Якщо маршрут не знайдено
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ message: 'Not Found' }));
 };
 
-module.exports = routeHandler;
+module.exports = handleRequest;

@@ -1,95 +1,103 @@
 const sqlite3 = require('sqlite3').verbose();
+const DB_PATH = './db/vehicles.db';
+const CONTENT_TYPE_JSON = { 'Content-Type': 'application/json' };
+
+// Функція для створення підключення до БД
+const connectDB = () => new sqlite3.Database(DB_PATH);
+
+// Виконання SQL-запиту з поверненням результатів
+const executeQuery = async (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        const db = connectDB();
+        db.all(query, params, (err, rows) => {
+            db.close();
+            err ? reject(err) : resolve(rows);
+        });
+    });
+};
+
+// Виконання SQL-запиту без повернення даних
+const executeRun = async (query, params = []) => {
+    return new Promise((resolve, reject) => {
+        const db = connectDB();
+        db.run(query, params, function (err) {
+            db.close();
+            err ? reject(err) : resolve(this);
+        });
+    });
+};
+
+// Обробка JSON-запиту
+const parseRequestBody = (req) => {
+    return new Promise((resolve, reject) => {
+        let body = '';
+        req.on('data', chunk => (body += chunk.toString()));
+        req.on('end', () => {
+            try {
+                resolve(JSON.parse(body));
+            } catch (err) {
+                reject(new Error('Invalid JSON format'));
+            }
+        });
+    });
+};
 
 // Додавання нового користувача
-const addUser = (req, res) => {
-    let body = '';
-    req.on('data', chunk => {
-        body += chunk.toString();
-    });
-
-    req.on('end', () => {
-        const { username, password, role } = JSON.parse(body);
+const addUser = async (req, res) => {
+    try {
+        const { username, password, role } = await parseRequestBody(req);
         if (!username || !password || !role) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'All fields are required' }));
-            return;
+            res.writeHead(400, CONTENT_TYPE_JSON);
+            return res.end(JSON.stringify({ message: 'All fields are required' }));
         }
 
-        const db = new sqlite3.Database('./db/vehicles.db');
-        db.run('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', 
-            [username, password, role], 
-            function(err) {
-                if (err) {
-                    res.writeHead(500, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: err.message }));
-                    db.close();
-                    return;
-                }
-                res.writeHead(201, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'User added', id: this.lastID }));
-                db.close();
-            }
-        );
-    });
+        const result = await executeRun('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', 
+            [username, password, role]);
+
+        res.writeHead(201, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ message: 'User added', id: result.lastID }));
+    } catch (err) {
+        res.writeHead(500, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ error: err.message }));
+    }
 };
 
 // Отримання всіх користувачів
-const getAllUsers = (req, res) => {
-    const db = new sqlite3.Database('./db/vehicles.db');
-    db.all('SELECT * FROM users', [], (err, rows) => {
-        if (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            db.close();
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify(rows));
-        db.close();
-    });
+const getAllUsers = async (req, res) => {
+    try {
+        const users = await executeQuery('SELECT * FROM users');
+        res.writeHead(200, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify(users));
+    } catch (err) {
+        res.writeHead(500, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ error: err.message }));
+    }
 };
 
 // Видалення користувача за ID
-const deleteUser = (req, res, userId) => {
-    const db = new sqlite3.Database('./db/vehicles.db');
-    db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
-        if (err) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: err.message }));
-            db.close();
-            return;
-        }
-        if (this.changes === 0) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'User not found' }));
-            db.close();
-            return;
-        }
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ message: 'User deleted' }));
-        db.close();
-    });
+const deleteUser = async (req, res, userId) => {
+    try {
+        const result = await executeRun('DELETE FROM users WHERE id = ?', [userId]);
+
+        res.writeHead(result.changes === 0 ? 404 : 200, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({
+            message: result.changes === 0 ? 'User not found' : 'User deleted'
+        }));
+    } catch (err) {
+        res.writeHead(500, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ error: err.message }));
+    }
 };
 
 // Оновлення інформації про користувача
-const updateUser = (req, res, userId) => {
-    let body = '';
-    req.on('data', chunk => {
-        body += chunk.toString();
-    });
-
-    req.on('end', () => {
-        const { username, password, role } = JSON.parse(body);
-
+const updateUser = async (req, res, userId) => {
+    try {
+        const { username, password, role } = await parseRequestBody(req);
         if (!username && !password && !role) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'At least one field is required to update' }));
-            return;
+            res.writeHead(400, CONTENT_TYPE_JSON);
+            return res.end(JSON.stringify({ message: 'At least one field is required to update' }));
         }
 
-        const db = new sqlite3.Database('./db/vehicles.db');
-
-        // Формуємо динамічний SQL-запит залежно від введених полів
         const updates = [];
         const values = [];
 
@@ -106,30 +114,19 @@ const updateUser = (req, res, userId) => {
             values.push(role);
         }
 
-        values.push(userId); // додаємо userId для WHERE
-
+        values.push(userId);
         const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
 
-        db.run(query, values, function(err) {
-            if (err) {
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: err.message }));
-                db.close();
-                return;
-            }
+        const result = await executeRun(query, values);
 
-            if (this.changes === 0) {
-                res.writeHead(404, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ message: 'User not found' }));
-                db.close();
-                return;
-            }
-
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ message: 'User updated successfully' }));
-            db.close();
-        });
-    });
+        res.writeHead(result.changes === 0 ? 404 : 200, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({
+            message: result.changes === 0 ? 'User not found' : 'User updated successfully'
+        }));
+    } catch (err) {
+        res.writeHead(500, CONTENT_TYPE_JSON);
+        res.end(JSON.stringify({ error: err.message }));
+    }
 };
 
 module.exports = { addUser, getAllUsers, deleteUser, updateUser };
