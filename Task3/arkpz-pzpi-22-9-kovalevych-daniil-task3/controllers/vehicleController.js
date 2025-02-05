@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 
 // Отримання всіх транспортних засобів
 const getAllVehicles = (req, res) => {
-    const db = new sqlite3.Database('./vehicles.db');
+    const db = new sqlite3.Database('./db/vehicles.db');
     
     db.all('SELECT * FROM vehicles', [], (err, rows) => {
         if (err) {
@@ -20,7 +20,7 @@ const getAllVehicles = (req, res) => {
 // Додавання нового транспортного засобу
 const addVehicle = (req, res) => {
     let body = '';
-    const db = new sqlite3.Database('./vehicles.db');
+    const db = new sqlite3.Database('./db/vehicles.db');
 
     req.on('data', chunk => {
         body += chunk.toString();
@@ -57,7 +57,7 @@ const addVehicle = (req, res) => {
 // Оновлення інформації про транспортний засіб
 const updateVehicle = (req, res, vehicleId) => {
     let body = '';
-    const db = new sqlite3.Database('./vehicles.db');
+    const db = new sqlite3.Database('./db/vehicles.db');
 
     req.on('data', chunk => {
         body += chunk.toString();
@@ -94,7 +94,7 @@ const updateVehicle = (req, res, vehicleId) => {
 
 // Видалення транспортного засобу
 const deleteVehicle = (req, res, vehicleId) => {
-    const db = new sqlite3.Database('./vehicles.db');
+    const db = new sqlite3.Database('./db/vehicles.db');
 
     db.run('DELETE FROM vehicles WHERE id = ?', [vehicleId], function(err) {
         if (err) {
@@ -121,7 +121,7 @@ const deleteVehicle = (req, res, vehicleId) => {
 
 // Отримання транспортного засобу за ID
 const getVehicleById = (req, res, vehicleId) => {
-    const db = new sqlite3.Database('./vehicles.db');
+    const db = new sqlite3.Database('./db/vehicles.db');
 
     db.get('SELECT * FROM vehicles WHERE id = ?', [vehicleId], (err, row) => {
         if (err) {
